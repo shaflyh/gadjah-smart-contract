@@ -18,8 +18,8 @@ contract GadjahSociety is ERC721, Ownable {
     uint256 public cost = 0.06 ether;
     uint256 public presaleCost = 0.04 ether;
     uint256 public maxSupply = 100;
-    uint256 public maxMintAmountPerTx = 4;
-    uint256 public nftPerAddressLimit = 8;
+    uint256 public maxMintAmountPerTx = 5;
+    uint256 public presaleMintLimit = 5;
     bool public revealed = false;
     bool public paused = false;
     bool public onPresale = true;
@@ -36,7 +36,7 @@ contract GadjahSociety is ERC721, Ownable {
     modifier mintCompliance(uint256 _mintAmount) {
         require(
             (_mintAmount > 0) && (_mintAmount <= maxMintAmountPerTx),
-            "Invalid mint amount! Max mint amount is 4"
+            "Invalid mint amount!"
         );
         require(
             supply.current() + _mintAmount <= maxSupply,
@@ -57,8 +57,8 @@ contract GadjahSociety is ERC721, Ownable {
             require(isWhitelisted(msg.sender), "User is not in whitelist");
             uint256 ownerMintCount = addressMintBalance[msg.sender];
             require(
-                ownerMintCount + _mintAmount <= nftPerAddressLimit,
-                "Max NFT per address reached"
+                ownerMintCount + _mintAmount <= presaleMintLimit,
+                "Max NFT per address on presale reached"
             );
             require(
                 msg.value >= presaleCost * _mintAmount,
@@ -165,18 +165,15 @@ contract GadjahSociety is ERC721, Ownable {
         presaleCost = _presaleCost;
     }
 
-    function setmaxMintAmountPerTx(uint256 _newmaxMintAmountPerTx)
+    function setMaxMintAmountPerTx(uint256 _maxMintAmountPerTx)
         public
         onlyOwner
     {
-        maxMintAmountPerTx = _newmaxMintAmountPerTx;
+        maxMintAmountPerTx = _maxMintAmountPerTx;
     }
 
-    function setNftPerAddressLimit(uint256 _nftPerAddressLimit)
-        public
-        onlyOwner
-    {
-        nftPerAddressLimit = _nftPerAddressLimit;
+    function setPresaleMintLimit(uint256 _presaleMintLimit) public onlyOwner {
+        presaleMintLimit = _presaleMintLimit;
     }
 
     function setBaseURI(string memory _newBaseURI) public onlyOwner {
