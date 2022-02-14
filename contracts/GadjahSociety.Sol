@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.7;
 
-import "erc721a/contracts/ERC721A.sol";
+import "./ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
@@ -71,7 +71,8 @@ contract GadjahSociety is ERC721A, Ownable {
             require(isOnPublicSales(), "Public sale not started yet");
             require(msg.value >= cost * _mintAmount, "Insufficient funds!");
         }
-        _mintLoop(msg.sender, _mintAmount);
+        supply.increment();
+        _safeMint(msg.sender, _mintAmount);
     }
 
     function totalSupply() public view returns (uint256) {
@@ -105,7 +106,7 @@ contract GadjahSociety is ERC721A, Ownable {
         return ownedTokenIds;
     }
 
-    function tokenURI(uint256 tokenId)
+    function tokenURI(uint256 _tokenId)
         public
         view
         virtual
@@ -113,7 +114,7 @@ contract GadjahSociety is ERC721A, Ownable {
         returns (string memory)
     {
         require(
-            _exists(tokenId),
+            _exists(_tokenId),
             "ERC721Metadata: URI query for nonexistent token"
         );
 
@@ -129,7 +130,7 @@ contract GadjahSociety is ERC721A, Ownable {
                 ? string(
                     abi.encodePacked(
                         currentBaseURI,
-                        tokenId.toString(),
+                        _tokenId.toString(),
                         baseExtension
                     )
                 )
@@ -155,8 +156,7 @@ contract GadjahSociety is ERC721A, Ownable {
 
     // Public sale is started when presales ends
     function isOnPublicSales() public view returns (bool) {
-        return
-            presalesEndTime > 0 && block.timestamp >= presalesEndTime;
+        return presalesEndTime > 0 && block.timestamp >= presalesEndTime;
     }
 
     // Only owner //
@@ -166,7 +166,8 @@ contract GadjahSociety is ERC721A, Ownable {
         mintCompliance(_mintAmount)
         onlyOwner
     {
-        _mintLoop(_receiver, _mintAmount);
+        supply.increment();
+        _safeMint(_receiver, _mintAmount);
     }
 
     function setRevealed(bool _state) public onlyOwner {
@@ -235,13 +236,6 @@ contract GadjahSociety is ERC721A, Ownable {
     }
 
     // Internal //
-
-    function _mintLoop(address _receiver, uint256 _mintAmount) internal {
-        for (uint256 i = 0; i < _mintAmount; i++) {
-            supply.increment();
-            _safeMint(_receiver, supply.current());
-        }
-    }
 
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
