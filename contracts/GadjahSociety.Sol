@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.7;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "erc721a/contracts/ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract GadjahSociety is ERC721, Ownable {
+contract GadjahSociety is ERC721A, Ownable {
     using Strings for uint256;
     using Counters for Counters.Counter;
 
@@ -28,7 +28,7 @@ contract GadjahSociety is ERC721, Ownable {
 
     mapping(address => uint256) public addressMintBalance;
 
-    constructor() ERC721("Gadjah Test 3", "GDJHT") {
+    constructor() ERC721A("Gadjah Test 3", "GDJHT") {
         setNotRevealedURI(
             "https://ipfs.io/ipfs/QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg"
         );
