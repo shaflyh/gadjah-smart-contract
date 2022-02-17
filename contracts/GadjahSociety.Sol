@@ -5,6 +5,7 @@ pragma solidity ^0.8.7;
 import "./ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract GadjahSociety is ERC721A, Ownable {
     using Strings for uint256;
@@ -20,15 +21,15 @@ contract GadjahSociety is ERC721A, Ownable {
     uint256 public maxSupply = 100;
     uint256 public maxMintAmountPerTx = 5;
     uint256 public presaleMintLimit = 5;
-    uint256 public presalesStartTime = 1644604200;
-    uint256 public presalesEndTime = 1644606000;
-    bool public revealed = false;
+    uint256 public nftPerAddressLimit = 20;
+    bytes32 public merkleRoot =
+        0x53212ebf251123d3330d409768d5fb8e236c010403ef565e7d1afaf79665a1fa;
+    bool public preSale = true;
+    bool public publicSale = false;
     bool public paused = false;
-    address[] public whitelist;
+    bool public revealed = false;
 
-    mapping(address => uint256) public addressMintBalance;
-
-    constructor() ERC721A("Gadjah Test 3", "GDJHT") {
+    constructor() ERC721A("Gadjah Test 4", "GDJHT", 5) {
         setNotRevealedURI(
             "https://ipfs.io/ipfs/QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg"
         );
@@ -46,37 +47,77 @@ contract GadjahSociety is ERC721A, Ownable {
         _;
     }
 
-    // Public function //
-
-    function mint(uint256 _mintAmount)
-        public
-        payable
-        mintCompliance(_mintAmount)
-    {
-        require(!paused, "The contract is paused!");
-        if (isOnPresales()) {
-            // Presale prerequisite
-            require(isWhitelisted(msg.sender), "User is not in whitelist");
-            uint256 ownerMintCount = addressMintBalance[msg.sender];
-            require(
-                ownerMintCount + _mintAmount <= presaleMintLimit,
-                "Max NFT per address on presale reached"
-            );
-            require(
-                msg.value >= presaleCost * _mintAmount,
-                "Insufficient funds!"
-            );
-        } else {
-            // Public sale prerequisite
-            require(isOnPublicSales(), "Public sale not started yet");
-            require(msg.value >= cost * _mintAmount, "Insufficient funds!");
-        }
-        supply.increment();
-        _safeMint(msg.sender, _mintAmount);
+    modifier saleStarted() {
+        require(publicSale, "Sale has not started yet");
+        _;
     }
 
-    function totalSupply() public view returns (uint256) {
-        return supply.current();
+    modifier notPaused() {
+        require(!paused, "the contract is paused");
+        _;
+    }
+
+    modifier PresaleStarted() {
+        require(preSale, "Presale has not started yet");
+        _;
+    }
+
+    // Public function //
+
+    function mint(uint256 _mintAmount) public payable notPaused saleStarted {
+        uint256 ownerTokenCount = balanceOf(msg.sender);
+        require(
+            ownerTokenCount + _mintAmount <= nftPerAddressLimit,
+            "max NFT per Wallet exceeded"
+        );
+        require(msg.value >= cost * _mintAmount, "insufficient funds");
+        require(
+            _mintAmount <= maxMintAmountPerTx,
+            "max mint amount per transaction exceeded"
+        );
+        require(
+            supply.current() + _mintAmount <= maxSupply,
+            "MaxSupply exceeded"
+        );
+
+        _safeMint(_msgSender(), _mintAmount);
+    }
+
+    function mintPresale(uint256 _mintAmount, bytes32[] calldata merkleProof)
+        external
+        payable
+        notPaused
+    {
+        require(preSale, "Presale has not started");
+        uint256 ownerMintCount = balanceOf(msg.sender);
+        require(
+            MerkleProof.verify(
+                merkleProof,
+                merkleRoot,
+                keccak256(abi.encodePacked(msg.sender))
+            ),
+            "You are not eligible for the presale"
+        );
+        require(
+            ownerMintCount + _mintAmount <= presaleMintLimit,
+            "Presale limit for this wallet reached"
+        );
+        require(
+            _mintAmount <= maxMintAmountPerTx,
+            "Cannot purchase this many NFT in a transaction"
+        );
+        require(
+            supply.current() + _mintAmount <= maxSupply,
+            "Minting would exceed max supply"
+        );
+        require(_mintAmount > 0, "Must mint at least one token");
+        require(msg.value >= cost * _mintAmount, "ETH amount is low");
+
+        _safeMint(_msgSender(), _mintAmount);
+    }
+
+    function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        merkleRoot = _merkleRoot;
     }
 
     function walletOfOwner(address _owner)
@@ -137,26 +178,12 @@ contract GadjahSociety is ERC721A, Ownable {
                 : "";
     }
 
-    function isWhitelisted(address _user) public view returns (bool) {
-        for (uint256 i = 0; i < whitelist.length; i++) {
-            if (whitelist[i] == _user) {
-                return true;
-            }
+    function getCurrentCost() public view returns (uint256) {
+        if (preSale) {
+            return presaleCost;
+        } else {
+            return cost;
         }
-        return false;
-    }
-
-    function isOnPresales() public view returns (bool) {
-        return
-            presalesStartTime > 0 &&
-            presalesEndTime > 0 &&
-            block.timestamp >= presalesStartTime &&
-            block.timestamp <= presalesEndTime;
-    }
-
-    // Public sale is started when presales ends
-    function isOnPublicSales() public view returns (bool) {
-        return presalesEndTime > 0 && block.timestamp >= presalesEndTime;
     }
 
     // Only owner //
@@ -206,27 +233,24 @@ contract GadjahSociety is ERC721A, Ownable {
         notRevealedURI = _notRevealedURI;
     }
 
+    function setNftPerAddressLimit(uint256 _limit) public onlyOwner {
+        nftPerAddressLimit = _limit;
+    }
+
     function setPause(bool _state) public onlyOwner {
         paused = _state;
     }
 
-    // Set all whitelist ( format ["0xA", "0xA"] )
-    function setWhitelist(address[] calldata _whitelist) public onlyOwner {
-        delete whitelist;
-        whitelist = _whitelist;
+    function setMaxSupply(uint256 _maxSupply) public onlyOwner {
+        maxSupply = _maxSupply;
     }
 
-    // unix epoch time in second
-    function setPreSalesTime(uint256 _startTime, uint256 _endTime)
-        external
-        onlyOwner
-    {
-        require(
-            _endTime >= _startTime,
-            "Presale End time should be later than start time"
-        );
-        presalesStartTime = _startTime;
-        presalesEndTime = _endTime;
+    function togglepreSale(bool _state) external onlyOwner {
+        preSale = _state;
+    }
+
+    function togglepublicSale(bool _state) external onlyOwner {
+        publicSale = _state;
     }
 
     function withdraw() public onlyOwner {
