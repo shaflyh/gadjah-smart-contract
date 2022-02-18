@@ -303,7 +303,7 @@ contract ERC721A is
         address from,
         address to,
         uint256 tokenId
-    ) public override {
+    ) public virtual override {
         _transfer(from, to, tokenId);
     }
 
@@ -408,7 +408,7 @@ contract ERC721A is
         address from,
         address to,
         uint256 tokenId
-    ) private {
+    ) internal virtual {
         TokenOwnership memory prevOwnership = ownershipOf(tokenId);
 
         bool isApprovedOrOwner = (_msgSender() == prevOwnership.addr ||
