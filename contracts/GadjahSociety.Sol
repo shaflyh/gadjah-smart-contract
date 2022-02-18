@@ -14,12 +14,12 @@ contract GadjahSociety is ERC721A, Ownable {
     string public baseExtension = ".json";
     uint256 public cost = 0.06 ether;
     uint256 public presaleCost = 0.04 ether;
-    uint256 public maxSupply = 100;
+    uint256 public maxSupply = 20;
     uint256 public maxMintAmountPerTx = 5;
     uint256 public presaleMintLimit = 5;
-    uint256 public nftPerAddressLimit = 20;
+    uint256 public nftPerAddressLimit = 100;
     bytes32 public merkleRoot =
-        0x53212ebf251123d3330d409768d5fb8e236c010403ef565e7d1afaf79665a1fa;
+        0x43781a8b5146419880cdf177f8f43e70523666abc838b2434587d1d0219fac60;
     bool public paused = false;
     bool public revealed = false;
     mapping(address => uint256) public addressMintPresaleCount;
@@ -42,11 +42,11 @@ contract GadjahSociety is ERC721A, Ownable {
 
     Period public period;
 
-    constructor() ERC721A("Gadjah Test 6", "GDJHT", 6) {
+    constructor() ERC721A("Gadjah Test 7", "GDJHT", 5) {
         setNotRevealedURI(
             "ipfs://QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg/"
         );
-        setPeriods(1645173900, 1645174800);
+        setPeriods(1645182000, 1645182900);
     }
 
     modifier mintCompliance(uint256 _mintAmount) {
@@ -203,10 +203,7 @@ contract GadjahSociety is ERC721A, Ownable {
         address to,
         uint256 tokenId
     ) public virtual override {
-        //solhint-disable-next-line max-line-length
-
-        safeTransferFrom(from, to, tokenId, "");
-        // _transfer(from, to, tokenId);
+        _transfer(from, to, tokenId);
         removeUserNftId(tokenId);
         setUserNftIds(to, tokenId, block.timestamp);
     }
