@@ -9,8 +9,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 contract GadjahSociety is ERC721A, Ownable {
     using Strings for uint256;
     using Counters for Counters.Counter;
-
-    Counters.Counter private supply;
+    Counters.Counter public _tokenIdCounter;
 
     string public baseURI = "";
     string public baseExtension = ".json";
@@ -20,17 +19,39 @@ contract GadjahSociety is ERC721A, Ownable {
     uint256 public maxSupply = 100;
     uint256 public maxMintAmountPerTx = 5;
     uint256 public presaleMintLimit = 5;
-    uint256 public presalesStartTime = 1644604200;
-    uint256 public presalesEndTime = 1644606000;
+
+    struct Period {
+        uint32 presalesStartTime; // Start time for the current rewardsToken schedule
+        uint32 presalesEndTime; // End time for the current rewardsToken schedule
+    }
+
+    Period public period;
+
+    // uint256 public presalesStartTime = 1644604200;
+    // uint256 public presalesEndTime = 1644606000;
     bool public revealed = false;
     bool public paused = false;
     address[] public whitelist;
+    // Nft times of users(user address->(nftId->time))
+    //mapping(address => mapping (uint256=> uint256)) public nftTimes;
 
-    mapping(address => uint256) public addressMintBalance;
+    mapping(address => NftSet) userNftIds;
+
+    // To store user's nft ids, it is more convenient to know if nft id of user exists
+    struct NftSet {
+        // user's nft id array
+        uint256[] ids;
+        // nft id -> bool, if nft id exist
+        mapping(uint256 => bool) isIn;
+        // user's nft timesPurchased
+        uint256[] timesPurchased;
+    }
+
+    //  mapping(address => uint256) public addressMintBalance;
 
     constructor() ERC721A("Gadjah Test 3", "GDJHT") {
         setNotRevealedURI(
-            "https://ipfs.io/ipfs/QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg"
+            "ipfs://QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg/"
         );
     }
 
@@ -40,7 +61,7 @@ contract GadjahSociety is ERC721A, Ownable {
             "Invalid mint amount!"
         );
         require(
-            supply.current() + _mintAmount <= maxSupply,
+            _tokenIdCounter.current() + _mintAmount <= maxSupply,
             "Max supply exceeded!"
         );
         _;
@@ -56,8 +77,8 @@ contract GadjahSociety is ERC721A, Ownable {
         require(!paused, "The contract is paused!");
         if (isOnPresales()) {
             // Presale prerequisite
-            require(isWhitelisted(msg.sender), "User is not in whitelist");
-            uint256 ownerMintCount = addressMintBalance[msg.sender];
+            //   require(isWhitelisted(msg.sender), "User is not in whitelist");
+            uint256 ownerMintCount = balanceOf(msg.sender);
             require(
                 ownerMintCount + _mintAmount <= presaleMintLimit,
                 "Max NFT per address on presale reached"
@@ -71,12 +92,126 @@ contract GadjahSociety is ERC721A, Ownable {
             require(isOnPublicSales(), "Public sale not started yet");
             require(msg.value >= cost * _mintAmount, "Insufficient funds!");
         }
-        supply.increment();
-        _safeMint(msg.sender, _mintAmount);
+        safeBatchMint(msg.sender, _mintAmount);
+        //    addressMintBalance[msg.sender]+=_mintAmount;
+    }
+
+    /// @notice Transfers the ownership of multiple NFTs from one address to another address
+    /// @param _to The new owner
+    function safeBatchMint(address _to, uint256 _amount) internal {
+        // _tokenIdCounter.increment();
+        //  uint256 tokenId = _tokenIdCounter.current();
+        for (uint256 i = 0; i < _amount; i++) {
+            _tokenIdCounter.increment();
+            _safeMint(_to, _tokenIdCounter.current());
+            //            nftTimes[_to][_tokenIdCounter.current()] =  block.timestamp;
+            setUserNftIds(_to, _tokenIdCounter.current(), block.timestamp);
+        }
+    }
+
+    /**
+     * Set user's nft id.
+     *
+     * Note: when nft id donot exist, the nft id will be added to ids array, and the idIn flag will be setted true;
+     * otherwise do nothing.
+     *
+     * @param user The address of user.
+     * @param nftId The nft id of user.
+     */
+    function setUserNftIds(
+        address user,
+        uint256 nftId,
+        uint256 _time
+    ) internal {
+        NftSet storage nftSet = userNftIds[user];
+        uint256[] storage ids = nftSet.ids;
+        uint256[] storage times = nftSet.timesPurchased;
+        mapping(uint256 => bool) storage isIn = nftSet.isIn;
+        if (!isIn[nftId]) {
+            ids.push(nftId);
+            times.push(_time);
+            isIn[nftId] = true;
+        }
+    }
+
+    /**
+     * Remove nft id of user.
+     *
+     * Note: when user's nft id amount=0, remove it from nft ids array, and set flag=false
+     */
+    function removeUserNftId(uint256 nftId) internal {
+        NftSet storage nftSet = userNftIds[msg.sender];
+        uint256[] storage ids = nftSet.ids;
+        uint256[] storage times = nftSet.timesPurchased;
+        mapping(uint256 => bool) storage isIn = nftSet.isIn;
+        require(ids.length > 0, "remove user nft ids, ids length must > 0");
+        // find nftId index
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (ids[i] == nftId) {
+                ids[i] = ids[ids.length - 1];
+                times[i] = times[times.length - 1];
+                isIn[nftId] = false;
+                ids.pop();
+                times.pop();
+            }
+        }
+    }
+
+    /**
+     * Get user's nft ids array.
+     * @param user The address of user.
+     */
+    function getUserNftIds(address user)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        return userNftIds[user].ids;
+    }
+
+    function getUserNftTimes(address user)
+        public
+        view
+        returns (uint256[] memory)
+    {
+        return userNftIds[user].timesPurchased;
+    }
+
+    /**
+     * @dev See {IERC721-transferFrom}.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public virtual override {
+        //solhint-disable-next-line max-line-length
+        require(
+            _isApprovedOrOwner(_msgSender(), tokenId),
+            "ERC721: transfer caller is not owner nor approved"
+        );
+
+        _transfer(from, to, tokenId);
+        removeUserNftId(tokenId);
+        setUserNftIds(to, tokenId, block.timestamp);
+    }
+
+    /// @dev Set a rewards schedule
+    function setPeriods(uint32 start, uint32 end) external onlyOwner {
+        require(start <= end, "Incorrect input");
+        // A new rewards program can be set if one is not running
+        require(
+            uint32(block.timestamp) < period.presalesStartTime ||
+                uint32(block.timestamp) > period.presalesEndTime,
+            "Ongoing Presale"
+        );
+
+        period.presalesStartTime = start;
+        period.presalesEndTime = end;
     }
 
     function totalSupply() public view returns (uint256) {
-        return supply.current();
+        return _tokenIdCounter.current();
     }
 
     function walletOfOwner(address _owner)
@@ -148,15 +283,13 @@ contract GadjahSociety is ERC721A, Ownable {
 
     function isOnPresales() public view returns (bool) {
         return
-            presalesStartTime > 0 &&
-            presalesEndTime > 0 &&
-            block.timestamp >= presalesStartTime &&
-            block.timestamp <= presalesEndTime;
+            uint32(block.timestamp) >= period.presalesStartTime &&
+            uint32(block.timestamp) <= period.presalesEndTime;
     }
 
     // Public sale is started when presales ends
     function isOnPublicSales() public view returns (bool) {
-        return presalesEndTime > 0 && block.timestamp >= presalesEndTime;
+        return uint32(block.timestamp) >= period.presalesEndTime;
     }
 
     // Only owner //
@@ -166,8 +299,7 @@ contract GadjahSociety is ERC721A, Ownable {
         mintCompliance(_mintAmount)
         onlyOwner
     {
-        supply.increment();
-        _safeMint(_receiver, _mintAmount);
+        safeBatchMint(_receiver, _mintAmount);
     }
 
     function setRevealed(bool _state) public onlyOwner {
@@ -214,19 +346,6 @@ contract GadjahSociety is ERC721A, Ownable {
     function setWhitelist(address[] calldata _whitelist) public onlyOwner {
         delete whitelist;
         whitelist = _whitelist;
-    }
-
-    // unix epoch time in second
-    function setPreSalesTime(uint256 _startTime, uint256 _endTime)
-        external
-        onlyOwner
-    {
-        require(
-            _endTime >= _startTime,
-            "Presale End time should be later than start time"
-        );
-        presalesStartTime = _startTime;
-        presalesEndTime = _endTime;
     }
 
     function withdraw() public onlyOwner {
