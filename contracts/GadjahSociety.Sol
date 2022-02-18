@@ -28,8 +28,9 @@ contract GadjahSociety is ERC721A, Ownable {
     bool public publicSale = false;
     bool public paused = false;
     bool public revealed = false;
+    mapping(address => uint256) public addressMintPresaleCount;
 
-    constructor() ERC721A("Gadjah Test 4", "GDJHT", 5) {
+    constructor() ERC721A("Gadjah Test 5", "GDJHT", 5) {
         setNotRevealedURI(
             "https://ipfs.io/ipfs/QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg"
         );
@@ -38,7 +39,7 @@ contract GadjahSociety is ERC721A, Ownable {
     modifier mintCompliance(uint256 _mintAmount) {
         require(
             (_mintAmount > 0) && (_mintAmount <= maxMintAmountPerTx),
-            "Invalid mint amount!"
+            "Invalid mint amount! Max mint amount per transaction exceeded"
         );
         require(
             supply.current() + _mintAmount <= maxSupply,
@@ -64,21 +65,19 @@ contract GadjahSociety is ERC721A, Ownable {
 
     // Public function //
 
-    function mint(uint256 _mintAmount) public payable notPaused saleStarted {
+    function mint(uint256 _mintAmount)
+        public
+        payable
+        mintCompliance(_mintAmount)
+        notPaused
+        saleStarted
+    {
         uint256 ownerTokenCount = balanceOf(msg.sender);
         require(
             ownerTokenCount + _mintAmount <= nftPerAddressLimit,
-            "max NFT per Wallet exceeded"
+            "Max NFT per Wallet exceeded"
         );
-        require(msg.value >= cost * _mintAmount, "insufficient funds");
-        require(
-            _mintAmount <= maxMintAmountPerTx,
-            "max mint amount per transaction exceeded"
-        );
-        require(
-            supply.current() + _mintAmount <= maxSupply,
-            "MaxSupply exceeded"
-        );
+        require(msg.value >= cost * _mintAmount, "Insufficient funds");
 
         _safeMint(_msgSender(), _mintAmount);
     }
@@ -86,10 +85,11 @@ contract GadjahSociety is ERC721A, Ownable {
     function mintPresale(uint256 _mintAmount, bytes32[] calldata merkleProof)
         external
         payable
+        mintCompliance(_mintAmount)
         notPaused
+        PresaleStarted
     {
-        require(preSale, "Presale has not started");
-        uint256 ownerMintCount = balanceOf(msg.sender);
+        uint256 ownerMintCount = addressMintPresaleCount[msg.sender];
         require(
             MerkleProof.verify(
                 merkleProof,
@@ -102,17 +102,10 @@ contract GadjahSociety is ERC721A, Ownable {
             ownerMintCount + _mintAmount <= presaleMintLimit,
             "Presale limit for this wallet reached"
         );
-        require(
-            _mintAmount <= maxMintAmountPerTx,
-            "Cannot purchase this many NFT in a transaction"
-        );
-        require(
-            supply.current() + _mintAmount <= maxSupply,
-            "Minting would exceed max supply"
-        );
-        require(_mintAmount > 0, "Must mint at least one token");
-        require(msg.value >= cost * _mintAmount, "ETH amount is low");
-
+        require(msg.value >= presaleCost * _mintAmount, "ETH amount is low");
+        for (uint256 i = 0; i < _mintAmount; i++) {
+            addressMintPresaleCount[msg.sender]++;
+        }
         _safeMint(_msgSender(), _mintAmount);
     }
 
