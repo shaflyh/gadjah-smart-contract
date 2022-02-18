@@ -4,18 +4,14 @@ pragma solidity ^0.8.7;
 
 import "./ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract GadjahSociety is ERC721A, Ownable {
     using Strings for uint256;
-    using Counters for Counters.Counter;
 
-    Counters.Counter private supply;
-
+    string public notRevealedURI;
     string public baseURI = "";
     string public baseExtension = ".json";
-    string public notRevealedURI;
     uint256 public cost = 0.06 ether;
     uint256 public presaleCost = 0.04 ether;
     uint256 public maxSupply = 100;
@@ -42,7 +38,7 @@ contract GadjahSociety is ERC721A, Ownable {
             "Invalid mint amount! Max mint amount per transaction exceeded"
         );
         require(
-            supply.current() + _mintAmount <= maxSupply,
+            totalSupply() + _mintAmount <= maxSupply,
             "Max supply exceeded!"
         );
         _;
@@ -186,7 +182,6 @@ contract GadjahSociety is ERC721A, Ownable {
         mintCompliance(_mintAmount)
         onlyOwner
     {
-        supply.increment();
         _safeMint(_receiver, _mintAmount);
     }
 
