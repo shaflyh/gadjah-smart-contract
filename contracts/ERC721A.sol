@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Creator: Chiru Labs
 
 pragma solidity ^0.8.4;
 
@@ -303,7 +302,7 @@ contract ERC721A is
         address from,
         address to,
         uint256 tokenId
-    ) public virtual override {
+    ) public override {
         _transfer(from, to, tokenId);
     }
 
@@ -408,7 +407,7 @@ contract ERC721A is
         address from,
         address to,
         uint256 tokenId
-    ) internal virtual {
+    ) private {
         TokenOwnership memory prevOwnership = ownershipOf(tokenId);
 
         bool isApprovedOrOwner = (_msgSender() == prevOwnership.addr ||

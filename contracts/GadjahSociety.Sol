@@ -12,12 +12,12 @@ contract GadjahSociety is ERC721A, Ownable {
     string public notRevealedURI;
     string public baseURI = "";
     string public baseExtension = ".json";
-    uint256 public cost = 0.06 ether;
+    uint256 public cost = 0.04 ether;
     uint256 public presaleCost = 0.04 ether;
-    uint256 public maxSupply = 20;
+    uint256 public maxSupply = 4828;
     uint256 public maxMintAmountPerTx = 5;
     uint256 public presaleMintLimit = 5;
-    uint256 public nftPerAddressLimit = 100;
+    uint256 public nftPerAddressLimit = 5;
     bytes32 public merkleRoot =
         0x43781a8b5146419880cdf177f8f43e70523666abc838b2434587d1d0219fac60;
     bool public paused = false;
@@ -42,11 +42,11 @@ contract GadjahSociety is ERC721A, Ownable {
 
     Period public period;
 
-    constructor() ERC721A("Gadjah Test 7", "GDJHT", 5) {
+    constructor() ERC721A("Gadjah Society1", "GDJH", 5) {
         setNotRevealedURI(
             "ipfs://QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg/"
         );
-        setPeriods(1645182000, 1645182900);
+        setPeriods(1645020000, 1645106400);
     }
 
     modifier mintCompliance(uint256 _mintAmount) {
@@ -92,6 +92,9 @@ contract GadjahSociety is ERC721A, Ownable {
         );
         require(msg.value >= cost * _mintAmount, "Insufficient funds");
 
+        for (uint256 i = 0; i < _mintAmount; i++) {
+            setUserNftIds(_msgSender(), totalSupply(), block.timestamp);
+        }
         _safeMint(_msgSender(), _mintAmount);
     }
 
@@ -193,19 +196,6 @@ contract GadjahSociety is ERC721A, Ownable {
         returns (uint256[] memory)
     {
         return userNftIds[user].timesPurchased;
-    }
-
-    /**
-     * @dev See {IERC721-transferFrom}.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) public virtual override {
-        _transfer(from, to, tokenId);
-        removeUserNftId(tokenId);
-        setUserNftIds(to, tokenId, block.timestamp);
     }
 
     /// @dev Set a rewards schedule

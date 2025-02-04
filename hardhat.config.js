@@ -15,7 +15,7 @@ module.exports = {
       },
     },
   },
-  defaultNetwork: "rinkeby", // Deploy network rinkeby testnet or etherium mainnet
+  defaultNetwork: "ethereum", // Deploy network rinkeby testnet or etherium mainnet
   networks: {
     hardhat: {},
     rinkeby: {
@@ -29,6 +29,6 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: "EUGM9EVSMBNGJPA1QNZBQ4G3218DSN9RE5"
+    apiKey: "7X2ZEIYCV3WXBDFCP9J4YCKQWAJVKYET1H" // Gadjah
   }
 }
