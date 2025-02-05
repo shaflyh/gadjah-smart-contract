@@ -1,10 +1,11 @@
 //SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.20;
 
-import "./ERC721A.sol";
+import "erc721a/contracts/ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract GadjahSociety is ERC721A, Ownable {
     using Strings for uint256;
@@ -42,7 +43,7 @@ contract GadjahSociety is ERC721A, Ownable {
 
     Period public period;
 
-    constructor() ERC721A("Gadjah Test 7", "GDJHT", 5) {
+    constructor() ERC721A("Gadjah Test 21", "GDJHT") {
         setNotRevealedURI(
             "ipfs://QmWj1cuT4mqwPMC5P5CYk51nzWuDEUyA5huEeWA9m4dtfg/"
         );
@@ -78,13 +79,9 @@ contract GadjahSociety is ERC721A, Ownable {
 
     // Public function //
 
-    function mint(uint256 _mintAmount)
-        public
-        payable
-        mintCompliance(_mintAmount)
-        notPaused
-        saleStarted
-    {
+    function mint(
+        uint256 _mintAmount
+    ) public payable mintCompliance(_mintAmount) notPaused saleStarted {
         uint256 ownerTokenCount = balanceOf(msg.sender);
         require(
             ownerTokenCount + _mintAmount <= nftPerAddressLimit,
@@ -95,13 +92,10 @@ contract GadjahSociety is ERC721A, Ownable {
         _safeMint(_msgSender(), _mintAmount);
     }
 
-    function mintPresale(uint256 _mintAmount, bytes32[] calldata merkleProof)
-        external
-        payable
-        mintCompliance(_mintAmount)
-        notPaused
-        PresaleStarted
-    {
+    function mintPresale(
+        uint256 _mintAmount,
+        bytes32[] calldata merkleProof
+    ) external payable mintCompliance(_mintAmount) notPaused PresaleStarted {
         uint256 ownerMintCount = addressMintPresaleCount[msg.sender];
         require(
             MerkleProof.verify(
@@ -116,9 +110,12 @@ contract GadjahSociety is ERC721A, Ownable {
             "Presale limit for this wallet reached"
         );
         require(msg.value >= presaleCost * _mintAmount, "ETH amount is low");
+
+        uint256 startTokenId = totalSupply();
+
         for (uint256 i = 0; i < _mintAmount; i++) {
             addressMintPresaleCount[msg.sender]++;
-            setUserNftIds(_msgSender(), totalSupply(), block.timestamp);
+            setUserNftIds(_msgSender(), startTokenId + i, block.timestamp);
         }
         _safeMint(_msgSender(), _mintAmount);
     }
@@ -179,33 +176,16 @@ contract GadjahSociety is ERC721A, Ownable {
      * Get user's nft ids array.
      * @param user The address of user.
      */
-    function getUserNftIds(address user)
-        public
-        view
-        returns (uint256[] memory)
-    {
+    function getUserNftIds(
+        address user
+    ) public view returns (uint256[] memory) {
         return userNftIds[user].ids;
     }
 
-    function getUserNftTimes(address user)
-        public
-        view
-        returns (uint256[] memory)
-    {
+    function getUserNftTimes(
+        address user
+    ) public view returns (uint256[] memory) {
         return userNftIds[user].timesPurchased;
-    }
-
-    /**
-     * @dev See {IERC721-transferFrom}.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 tokenId
-    ) public virtual override {
-        _transfer(from, to, tokenId);
-        removeUserNftId(tokenId);
-        setUserNftIds(to, tokenId, block.timestamp);
     }
 
     /// @dev Set a rewards schedule
@@ -222,11 +202,9 @@ contract GadjahSociety is ERC721A, Ownable {
         period.presalesEndTime = end;
     }
 
-    function walletOfOwner(address _owner)
-        public
-        view
-        returns (uint256[] memory)
-    {
+    function walletOfOwner(
+        address _owner
+    ) public view returns (uint256[] memory) {
         uint256 ownerTokenCount = balanceOf(_owner);
         uint256[] memory ownedTokenIds = new uint256[](ownerTokenCount);
         uint256 currentTokenId = 1;
@@ -249,13 +227,9 @@ contract GadjahSociety is ERC721A, Ownable {
         return ownedTokenIds;
     }
 
-    function tokenURI(uint256 _tokenId)
-        public
-        view
-        virtual
-        override
-        returns (string memory)
-    {
+    function tokenURI(
+        uint256 _tokenId
+    ) public view virtual override returns (string memory) {
         require(
             _exists(_tokenId),
             "ERC721Metadata: URI query for nonexistent token"
@@ -301,11 +275,10 @@ contract GadjahSociety is ERC721A, Ownable {
 
     // Only owner //
 
-    function mintForAddress(uint256 _mintAmount, address _receiver)
-        public
-        mintCompliance(_mintAmount)
-        onlyOwner
-    {
+    function mintForAddress(
+        uint256 _mintAmount,
+        address _receiver
+    ) public mintCompliance(_mintAmount) onlyOwner {
         _safeMint(_receiver, _mintAmount);
     }
 
@@ -322,10 +295,9 @@ contract GadjahSociety is ERC721A, Ownable {
         presaleCost = _presaleCost;
     }
 
-    function setMaxMintAmountPerTx(uint256 _maxMintAmountPerTx)
-        public
-        onlyOwner
-    {
+    function setMaxMintAmountPerTx(
+        uint256 _maxMintAmountPerTx
+    ) public onlyOwner {
         maxMintAmountPerTx = _maxMintAmountPerTx;
     }
 
@@ -367,5 +339,10 @@ contract GadjahSociety is ERC721A, Ownable {
 
     function _baseURI() internal view virtual override returns (string memory) {
         return baseURI;
+    }
+
+    // Override
+    function _startTokenId() internal view virtual override returns (uint256) {
+        return 1;
     }
 }
